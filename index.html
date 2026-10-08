@@ -1,0 +1,1318 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description"
+    content="Seoul Street Trees · Smell Map (서울 가로수 향기 지도) — An olfactory cartographic visualization mapping volatile scents, floral perfumes, and botanical aromas across Seoul's 25 districts.">
+  <title>Seoul Street Trees · Smell Map (서울 가로수 향기 지도)</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- Google Fonts: Noto Serif KR, Cormorant Garamond, Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400;1,600&family=Noto+Serif+KR:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-canvas: #fcfbfa;
+      --panel-bg: rgba(255, 255, 255, 0.92);
+      --panel-border: rgba(220, 215, 205, 0.7);
+      --text-ink: #1f2320;
+      --text-secondary: #525c56;
+      --text-faint: #8a968f;
+
+      /* Scent Category Palette (Humble Administrator's Garden Reference) */
+      --scent-ginkgo: #f59e0b;
+      /* Pungent / Fermented Amber */
+      --scent-cherry: #f472b6;
+      /* Delicate Sweet Floral Pink */
+      --scent-chitalpa: #a855f7;
+      /* Sweet Fringe Violet/Lilac */
+      --scent-pine: #06b6d4;
+      /* Resinous Fresh Cyan */
+      --scent-plane: #84cc16;
+      /* Aromatic Young Foliage Green */
+      --scent-zelkova: #10b981;
+      /* Subtle Green Emerald */
+      --scent-pagoda: #eab308;
+      /* Honey Blossom Gold */
+      --scent-chestnut: #fb923c;
+      /* Warm Sweet Blossom Orange */
+      --scent-redwood: #14b8a6;
+      /* Mild Conifer Teal */
+      --scent-hibiscus: #ec4899;
+      /* Faint Rose Magenta */
+      --scent-other: #94a3b8;
+      /* Subtle Slate Mix */
+
+      --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: 'Plus Jakarta Sans', 'Noto Serif KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-ink);
+      background: var(--bg-canvas);
+    }
+
+    #app-container {
+      position: relative;
+      height: 100vh;
+      height: 100dvh;
+      width: 100vw;
+      overflow: hidden;
+    }
+
+    /* Rice Paper & Fine Grain Canvas Overlay */
+    .canvas-grain {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 500;
+      opacity: 0.22;
+      background-image:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.7), transparent 90%),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.35'/%3E%3C/svg%3E");
+      mix-blend-mode: multiply;
+    }
+
+    /* Map Element */
+    #map {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      height: 100%;
+      width: 100%;
+      background: #faf9f6;
+    }
+
+    /* Black and White Monochrome Map Tiles */
+    .leaflet-tile-pane {
+      filter: grayscale(100%) contrast(1.15) brightness(1.02);
+      opacity: 0.94;
+    }
+
+    /* Top-Left Title Card */
+    .smell-title-card {
+      position: absolute;
+      top: calc(24px + var(--safe-top));
+      left: calc(24px + var(--safe-left));
+      z-index: 1000;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow: var(--shadow-soft);
+      padding: 20px 24px;
+      max-width: 420px;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .main-title-kr {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #1a1e1b;
+      line-height: 1.1;
+    }
+
+    .main-title-en {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 14.5px;
+      font-style: italic;
+      color: var(--text-secondary);
+      letter-spacing: 0.02em;
+    }
+
+    .poetic-quote {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 11.5px;
+      line-height: 1.75;
+      color: #556059;
+      border-left: 2px solid #e0dbd1;
+      padding-left: 10px;
+      margin-top: 6px;
+      margin-bottom: 12px;
+    }
+
+    /* Season Tabs */
+    .season-selector {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      background: rgba(240, 236, 228, 0.6);
+      padding: 4px;
+      border-radius: 10px;
+    }
+
+    .season-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      padding: 6px 4px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #556059;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .season-btn.active {
+      background: #ffffff;
+      color: var(--text-ink);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    }
+
+    .control-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    select {
+      width: 100%;
+      min-height: 38px;
+      padding: 7px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(200, 195, 185, 0.7);
+      background: #ffffff;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-ink);
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23525c56'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 14px;
+      padding-right: 28px;
+    }
+
+    select:focus {
+      border-color: #507761;
+    }
+
+    /* District Drill-down Floating Banner */
+    .district-view-banner {
+      position: absolute;
+      top: calc(24px + var(--safe-top));
+      right: calc(24px + var(--safe-right));
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      box-shadow: var(--shadow-soft);
+      padding: 8px 14px;
+      animation: fadeInSlide 0.25s ease-out;
+    }
+
+    @keyframes fadeInSlide {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .back-overview-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #1f2521;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    }
+
+    .back-overview-btn:hover {
+      background: #344038;
+      transform: translateY(-1px);
+    }
+
+    .district-view-info {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.25;
+      padding-left: 4px;
+      border-left: 1px solid rgba(200, 195, 185, 0.7);
+    }
+
+    .district-view-name {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #1a1e1b;
+    }
+
+    .district-view-count {
+      font-size: 10.5px;
+      color: var(--text-secondary);
+    }
+
+    /* Individual Tree Diffused Radius Circles */
+    .individual-tree-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .tree-diffused-circle {
+      position: relative;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
+    }
+
+    .tree-diffused-aura {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      opacity: 0.68;
+      filter: blur(2px);
+      mix-blend-mode: multiply;
+      pointer-events: none;
+    }
+
+    .tree-diffused-ring {
+      position: absolute;
+      inset: -2px;
+      border-radius: 50%;
+      border: 1px dashed;
+      opacity: 0.4;
+      pointer-events: none;
+      animation: treeScentBreathe 5s ease-in-out infinite;
+    }
+
+    @keyframes treeScentBreathe {
+      0%, 100% { transform: scale(1); opacity: 0.35; }
+      50% { transform: scale(1.18); opacity: 0.75; }
+    }
+
+    .tree-diffused-center {
+      width: 4.5px;
+      height: 4.5px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1.2px solid #1a1e1b;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .individual-tree-container:hover .tree-diffused-circle {
+      transform: scale(1.45);
+      z-index: 999;
+    }
+
+    .individual-tree-container:hover .tree-diffused-aura {
+      opacity: 0.95;
+      filter: blur(1px);
+    }
+
+    /* Bottom Scent Palette Legend */
+    .bottom-scent-legend {
+      position: absolute;
+      bottom: calc(20px + var(--safe-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      box-shadow: var(--shadow-soft);
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      max-width: calc(100vw - 40px);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .bottom-scent-legend::-webkit-scrollbar {
+      display: none;
+    }
+
+    .legend-scent-list {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .legend-scent-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: #3f4742;
+      white-space: nowrap;
+      cursor: pointer;
+      padding: 5px 8px;
+      border-radius: 8px;
+      transition: all 0.18s ease;
+      user-select: none;
+    }
+
+    .legend-scent-item:hover {
+      background: rgba(0, 0, 0, 0.05);
+      color: #1a1e1b;
+    }
+
+    .legend-scent-item.active {
+      background: #ffffff;
+      color: #141815;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 1.2px rgba(80, 119, 97, 0.4);
+    }
+
+    .scent-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.8), 0 2px 5px rgba(0, 0, 0, 0.15);
+    }
+
+    .legend-scale-divider {
+      width: 1px;
+      height: 20px;
+      background: rgba(200, 195, 185, 0.7);
+      flex-shrink: 0;
+    }
+
+    .legend-diffusion-scale {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-faint);
+      white-space: nowrap;
+    }
+
+    .diffusion-ring-sample {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.2px solid #507761;
+      background: radial-gradient(circle, rgba(80, 119, 97, 0.3) 0%, rgba(80, 119, 97, 0.05) 70%, transparent 100%);
+      display: inline-block;
+    }
+
+    /* Scent Aura Blooms */
+    .scent-bloom-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .scent-aura {
+      position: relative;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
+    }
+
+    .aura-gradient-core {
+      position: absolute;
+      border-radius: 50%;
+      width: 100%;
+      height: 100%;
+      opacity: 0.62;
+      filter: blur(2.5px);
+      mix-blend-mode: multiply;
+      pointer-events: none;
+    }
+
+    .aura-ripple-1 {
+      position: absolute;
+      border-radius: 50%;
+      width: 80%;
+      height: 80%;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .aura-ripple-2 {
+      position: absolute;
+      border-radius: 50%;
+      width: 120%;
+      height: 120%;
+      border: 1px dashed rgba(0, 0, 0, 0.08);
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    .aura-core-point {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1.8px solid #1a1e1b;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+      z-index: 2;
+    }
+
+    .district-label-text {
+      position: absolute;
+      bottom: -18px;
+      font-family: 'Noto Serif KR', serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: #2b332e;
+      text-shadow: 0 1px 3px rgba(255, 255, 255, 0.95), 0 0 6px #ffffff;
+      white-space: nowrap;
+      pointer-events: none;
+      letter-spacing: -0.02em;
+    }
+
+    .scent-bloom-container:hover .scent-aura {
+      transform: scale(1.15);
+    }
+
+    .scent-bloom-container:hover .aura-gradient-core {
+      opacity: 0.85;
+      filter: blur(1.5px);
+    }
+
+    /* Popup Styling */
+    .leaflet-popup-content-wrapper {
+      background: rgba(255, 255, 255, 0.96) !important;
+      backdrop-filter: blur(14px);
+      border-radius: 16px;
+      border: 1px solid var(--panel-border);
+      box-shadow: var(--shadow-soft);
+      padding: 6px;
+    }
+
+    .leaflet-popup-tip {
+      background: #ffffff !important;
+    }
+
+    .scent-popup-card {
+      padding: 8px 6px;
+      min-width: 270px;
+      max-width: 320px;
+    }
+
+    .popup-scent-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid rgba(220, 215, 205, 0.6);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+    }
+
+    .popup-district-title {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1f2521;
+    }
+
+    .popup-scent-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: #f0ede6;
+      color: #3c4a41;
+    }
+
+    .dominant-smell-banner {
+      background: linear-gradient(135deg, rgba(245, 243, 237, 0.9), rgba(254, 250, 245, 0.9));
+      border: 1px solid rgba(220, 215, 205, 0.6);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+    }
+
+    .dominant-smell-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-faint);
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+
+    .dominant-smell-desc {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: #2b332d;
+    }
+
+    .scent-breakdown-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .smell-species-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 180px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    .smell-species-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+    }
+
+    .species-scent-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .species-scent-color {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* Mobile Controls */
+    @media (max-width: 768px) {
+      .smell-title-card {
+        top: calc(14px + var(--safe-top));
+        left: 14px;
+        right: 14px;
+        max-width: none;
+        padding: 16px 18px;
+      }
+
+      .main-title-kr {
+        font-size: 20px;
+      }
+
+      .poetic-quote {
+        font-size: 11px;
+      }
+
+      .bottom-scent-legend {
+        bottom: calc(14px + var(--safe-bottom));
+        padding: 8px 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="app-container">
+    <!-- Fine Canvas Texture Overlay -->
+    <div class="canvas-grain" aria-hidden="true"></div>
+
+    <!-- Map Canvas -->
+    <main id="map" role="region" aria-label="Seoul Street Trees Olfactory Map"></main>
+
+    <!-- District Drill-down Floating Banner -->
+    <aside id="districtViewBanner" class="district-view-banner" style="display: none;" aria-label="District View Navigation">
+      <button id="btnBackToOverview" class="back-overview-btn" aria-label="Back to Seoul Overview">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <span>Seoul Overview (전체보기)</span>
+      </button>
+      <div class="district-view-info">
+        <span class="district-view-name" id="districtViewName">종로구</span>
+        <span class="district-view-count" id="districtViewCount">6,750 Street Trees</span>
+      </div>
+    </aside>
+
+    <!-- Top Left Title Card -->
+    <header class="smell-title-card" role="banner">
+      <div class="title-row">
+        <div class="main-title-kr">서울 가로수 · 향기 지도</div>
+      </div>
+      <div class="main-title-en">Seoul Street Trees · Scent Landscape (2025)</div>
+
+      <p class="poetic-quote">
+        “도시의 가로수는 눈으로만 보이지 않고, 바람과 계절에 실려오는 후각으로 기억된다. 가을의 알싸한 은행 열매 향, 봄날 벚꽃과 이팝나무의 달콤한 꽃내음, 사계절 솔잎의 청량한 피톤치드까지 — 25개
+        자치구의 가로수 수종별 향기 분포를 시각화한 감각 지도.”
+      </p>
+
+      <!-- Season Filter Pills -->
+      <div class="season-selector" role="tablist" aria-label="Filter by Season">
+        <button class="season-btn active" data-season="ALL" role="tab">All Seasons (전체)</button>
+        <button class="season-btn" data-season="spring" role="tab">🌸 Spring (봄)</button>
+        <button class="season-btn" data-season="summer" role="tab">☀️ Summer (여름)</button>
+        <button class="season-btn" data-season="autumn" role="tab">🍂 Autumn (가을)</button>
+        <button class="season-btn" data-season="year-round" role="tab">🌲 Evergreen (상록)</button>
+      </div>
+
+      <div class="control-row">
+        <select id="districtFilter" aria-label="Select Seoul District">
+          <option value="">-- Jump to District (25 자치구 향기 탐색) --</option>
+        </select>
+        <select id="scentCharacterFilter" aria-label="Filter by Scent Character">
+          <option value="ALL">All Scent Profiles (모든 향기 성격)</option>
+          <option value="pungent">Pungent / Fermented (알싸한 냄새 — 은행나무)</option>
+          <option value="floral">Sweet & Delicate Floral (달콤한 꽃향기 — 벚·이팝·회화)</option>
+          <option value="resinous">Fresh Resinous / Pine (청량한 솔향 — 소나무)</option>
+          <option value="aromatic">Aromatic Green Foliage (풋풋한 녹음 — 양버즘나무)</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- Bottom Scent Palette Legend -->
+    <footer class="bottom-scent-legend" role="contentinfo" aria-label="Scent Palette Legend">
+      <div class="legend-scent-list" id="legendScentList">
+        <!-- Dynamically populated -->
+      </div>
+      <div class="legend-scale-divider" aria-hidden="true"></div>
+      <div class="legend-diffusion-scale">
+        <span class="diffusion-ring-sample" aria-hidden="true"></span>
+        <span>Diffusion Radius (향기 확산 반경)</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script>
+    // Embedded Self-Contained Olfactory & Street Tree Dataset
+    const SEOUL_DATA = { "source_data": { "데이터": [{ "자치구별(1)": "자치구별(1)", "자치구별(2)": "자치구별(2)", "2025": "노선수 (개)", "2025.1": "수량 (그루)", "2025.2": "종별 (그루)", "2025.3": "종별 (그루)", "2025.4": "종별 (그루)", "2025.5": "종별 (그루)", "2025.6": "종별 (그루)", "2025.7": "종별 (그루)", "2025.8": "종별 (그루)", "2025.9": "종별 (그루)", "2025.10": "종별 (그루)", "2025.11": "종별 (그루)", "2025.12": "종별 (그루)" }, { "자치구별(1)": "자치구별(1)", "자치구별(2)": "자치구별(2)", "2025": "소계", "2025.1": "소계", "2025.2": "은행나무", "2025.3": "양버즘나무", "2025.4": "느티나무", "2025.5": "왕벚나무", "2025.6": "메타세콰이어", "2025.7": "회화나무", "2025.8": "칠엽수", "2025.9": "무궁화", "2025.10": "소나무", "2025.11": "이팝나무", "2025.12": "기타" }, { "자치구별(1)": "서울시", "자치구별(2)": "소계", "2025": 1729, "2025.1": 285573, "2025.2": 99398, "2025.3": 43085, "2025.4": 39567, "2025.5": 35051, "2025.6": 4840, "2025.7": 5333, "2025.8": 1971, "2025.9": 1887, "2025.10": 5187, "2025.11": 26443, "2025.12": 22811 }, { "자치구별(1)": null, "자치구별(2)": "종로구", "2025": 69, "2025.1": 6750, "2025.2": 3943, "2025.3": 843, "2025.4": 666, "2025.5": 381, "2025.6": "-", "2025.7": 140, "2025.8": 2, "2025.9": "-", "2025.10": 293, "2025.11": 368, "2025.12": 114 }, { "자치구별(1)": null, "자치구별(2)": "중구", "2025": 49, "2025.1": 7891, "2025.2": 3461, "2025.3": 133, "2025.4": 484, "2025.5": 207, "2025.6": "-", "2025.7": 121, "2025.8": "-", "2025.9": 13, "2025.10": 2143, "2025.11": 628, "2025.12": 701 }, { "자치구별(1)": null, "자치구별(2)": "용산구", "2025": 39, "2025.1": 7696, "2025.2": 4338, "2025.3": 1314, "2025.4": 471, "2025.5": 270, "2025.6": "-", "2025.7": 36, "2025.8": 16, "2025.9": "-", "2025.10": 51, "2025.11": 187, "2025.12": 1013 }, { "자치구별(1)": null, "자치구별(2)": "성동구", "2025": 58, "2025.1": 6113, "2025.2": 670, "2025.3": 1112, "2025.4": 1806, "2025.5": 372, "2025.6": 44, "2025.7": 206, "2025.8": "-", "2025.9": "-", "2025.10": 95, "2025.11": 1251, "2025.12": 557 }, { "자치구별(1)": null, "자치구별(2)": "광진구", "2025": 33, "2025.1": 6198, "2025.2": 1031, "2025.3": 1145, "2025.4": 1052, "2025.5": 854, "2025.6": "-", "2025.7": 164, "2025.8": 108, "2025.9": "-", "2025.10": 30, "2025.11": 1222, "2025.12": 592 }, { "자치구별(1)": null, "자치구별(2)": "동대문구", "2025": 66, "2025.1": 9348, "2025.2": 3395, "2025.3": 2204, "2025.4": 791, "2025.5": 663, "2025.6": 105, "2025.7": 95, "2025.8": 37, "2025.9": 12, "2025.10": 16, "2025.11": 1633, "2025.12": 397 }, { "자치구별(1)": null, "자치구별(2)": "중랑구", "2025": 65, "2025.1": 7723, "2025.2": 2679, "2025.3": 1972, "2025.4": 581, "2025.5": 538, "2025.6": 79, "2025.7": 17, "2025.8": 67, "2025.9": 170, "2025.10": 43, "2025.11": 700, "2025.12": 877 }, { "자치구별(1)": null, "자치구별(2)": "성북구", "2025": 93, "2025.1": 7109, "2025.2": 2168, "2025.3": 426, "2025.4": 1057, "2025.5": 1682, "2025.6": 59, "2025.7": 11, "2025.8": "-", "2025.9": 2, "2025.10": 32, "2025.11": 1112, "2025.12": 560 }, { "자치구별(1)": null, "자치구별(2)": "강북구", "2025": 43, "2025.1": 5570, "2025.2": 2784, "2025.3": 530, "2025.4": 238, "2025.5": 426, "2025.6": "-", "2025.7": 49, "2025.8": "-", "2025.9": "-", "2025.10": 739, "2025.11": 590, "2025.12": 214 }, { "자치구별(1)": null, "자치구별(2)": "도봉구", "2025": 63, "2025.1": 8505, "2025.2": 4311, "2025.3": 221, "2025.4": 758, "2025.5": 1749, "2025.6": 55, "2025.7": 23, "2025.8": "-", "2025.9": 136, "2025.10": 42, "2025.11": 305, "2025.12": 905 }, { "자치구별(1)": null, "자치구별(2)": "노원구", "2025": 101, "2025.1": 12499, "2025.2": 5678, "2025.3": 2533, "2025.4": 1124, "2025.5": 2047, "2025.6": 279, "2025.7": 129, "2025.8": "-", "2025.9": "-", "2025.10": 10, "2025.11": 122, "2025.12": 577 }, { "자치구별(1)": null, "자치구별(2)": "은평구", "2025": 38, "2025.1": 10223, "2025.2": 4295, "2025.3": 1644, "2025.4": 546, "2025.5": 2475, "2025.6": 26, "2025.7": 132, "2025.8": 15, "2025.9": "-", "2025.10": 11, "2025.11": 552, "2025.12": 527 }, { "자치구별(1)": null, "자치구별(2)": "서대문구", "2025": 42, "2025.1": 7435, "2025.2": 2996, "2025.3": 1519, "2025.4": 599, "2025.5": 637, "2025.6": 19, "2025.7": 59, "2025.8": 5, "2025.9": 189, "2025.10": 12, "2025.11": 767, "2025.12": 633 }, { "자치구별(1)": null, "자치구별(2)": "마포구", "2025": 97, "2025.1": 14468, "2025.2": 3507, "2025.3": 2631, "2025.4": 4080, "2025.5": 890, "2025.6": 353, "2025.7": 611, "2025.8": "-", "2025.9": "-", "2025.10": 363, "2025.11": 1288, "2025.12": 745 }, { "자치구별(1)": null, "자치구별(2)": "양천구", "2025": 70, "2025.1": 11723, "2025.2": 5395, "2025.3": 3123, "2025.4": 1126, "2025.5": 808, "2025.6": 57, "2025.7": 123, "2025.8": 13, "2025.9": 4, "2025.10": 31, "2025.11": 861, "2025.12": 182 }, { "자치구별(1)": null, "자치구별(2)": "강서구", "2025": 74, "2025.1": 14214, "2025.2": 4038, "2025.3": 588, "2025.4": 2271, "2025.5": 2760, "2025.6": 1462, "2025.7": 110, "2025.8": 111, "2025.9": 74, "2025.10": 291, "2025.11": 1870, "2025.12": 639 }, { "자치구별(1)": null, "자치구별(2)": "구로구", "2025": 103, "2025.1": 11855, "2025.2": 3389, "2025.3": 912, "2025.4": 1833, "2025.5": 2310, "2025.6": "-", "2025.7": "-", "2025.8": "-", "2025.9": "-", "2025.10": 99, "2025.11": 1412, "2025.12": 1900 }, { "자치구별(1)": null, "자치구별(2)": "금천구", "2025": 37, "2025.1": 6716, "2025.2": 3453, "2025.3": 625, "2025.4": 414, "2025.5": 1306, "2025.6": 27, "2025.7": 47, "2025.8": 7, "2025.9": "-", "2025.10": 1, "2025.11": 359, "2025.12": 477 }, { "자치구별(1)": null, "자치구별(2)": "영등포구", "2025": 124, "2025.1": 18028, "2025.2": 5981, "2025.3": 2695, "2025.4": 4150, "2025.5": 2430, "2025.6": 53, "2025.7": 142, "2025.8": 171, "2025.9": "-", "2025.10": 193, "2025.11": 1336, "2025.12": 877 }, { "자치구별(1)": null, "자치구별(2)": "동작구", "2025": 65, "2025.1": 6839, "2025.2": 2108, "2025.3": 602, "2025.4": 1569, "2025.5": 686, "2025.6": 105, "2025.7": "-", "2025.8": "-", "2025.9": 136, "2025.10": 29, "2025.11": 577, "2025.12": 1027 }, { "자치구별(1)": null, "자치구별(2)": "관악구", "2025": 32, "2025.1": 9210, "2025.2": 1848, "2025.3": 1737, "2025.4": 175, "2025.5": 2232, "2025.6": 59, "2025.7": 202, "2025.8": "-", "2025.9": 1053, "2025.10": 55, "2025.11": 460, "2025.12": 1389 }, { "자치구별(1)": null, "자치구별(2)": "서초구", "2025": 70, "2025.1": 16002, "2025.2": 3295, "2025.3": 4001, "2025.4": 3494, "2025.5": 659, "2025.6": 1103, "2025.7": 487, "2025.8": 818, "2025.9": 91, "2025.10": "-", "2025.11": 945, "2025.12": 1109 }, { "자치구별(1)": null, "자치구별(2)": "강남구", "2025": 81, "2025.1": 21457, "2025.2": 6944, "2025.3": 5165, "2025.4": 3431, "2025.5": 1796, "2025.6": 792, "2025.7": 445, "2025.8": "-", "2025.9": "-", "2025.10": "-", "2025.11": 969, "2025.12": 1915 }, { "자치구별(1)": null, "자치구별(2)": "송파구", "2025": 125, "2025.1": 23139, "2025.2": 10880, "2025.3": 2486, "2025.4": 2969, "2025.5": 1447, "2025.6": 19, "2025.7": "-", "2025.8": 573, "2025.9": "-", "2025.10": 534, "2025.11": 3305, "2025.12": 926 }, { "자치구별(1)": null, "자치구별(2)": "강동구", "2025": 82, "2025.1": 17126, "2025.2": 5050, "2025.3": 2315, "2025.4": 2128, "2025.5": 3821, "2025.6": 66, "2025.7": 54, "2025.8": 20, "2025.9": "-", "2025.10": 17, "2025.11": 1335, "2025.12": 2320 }, { "자치구별(1)": null, "자치구별(2)": "공원녹지사업소", "2025": 1, "2025.1": 722, "2025.2": 221, "2025.3": 26, "2025.4": 120, "2025.5": "-", "2025.6": "-", "2025.7": 5, "2025.8": 6, "2025.9": 7, "2025.10": 40, "2025.11": 66, "2025.12": 231 }, { "자치구별(1)": null, "자치구별(2)": "시설관리공단", "2025": 9, "2025.1": 11014, "2025.2": 1540, "2025.3": 583, "2025.4": 1634, "2025.5": 1605, "2025.6": 78, "2025.7": 1925, "2025.8": 2, "2025.9": "-", "2025.10": 17, "2025.11": 2223, "2025.12": 1407 }], "메타정보": [{ "○ 통계표ID": "○ 통계표명", "DT_201004_J010015": "가로수 현황" }, { "○ 통계표ID": "○ 조회기간", "DT_201004_J010015": "[년] 2025~2025  " }, { "○ 통계표ID": "○ 출처", "DT_201004_J010015": "서울특별시, 시정통계" }, { "○ 통계표ID": "○ 자료다운일자", "DT_201004_J010015": "2026.10.02 11:31" }, { "○ 통계표ID": "○ 통계표URL", "DT_201004_J010015": "https://stat.eseoul.go.kr/statHtml/statHtml.do?orgId=201&tblId=DT_201004_J010015&conn_path=I3" }, { "○ 통계표ID": null, "DT_201004_J010015": "* 시스템 개편 시 통계표 URL은 달라질 수 있음" }, { "○ 통계표ID": "○ 주석", "DT_201004_J010015": null }, { "○ 통계표ID": "통계표", "DT_201004_J010015": "* 현존수량 기준" }] }, "species_smell": [{ "key": "2025.2", "name_ko": "은행나무", "name_en": "Ginkgo", "scientific_name": "Ginkgo biloba", "smell": "Female trees produce seeds with a strong, unpleasant rancid odor, especially when fallen and crushed.", "character": ["pungent", "rancid", "unpleasant"], "source": "fruit/seed covering", "season": "autumn" }, { "key": "2025.3", "name_ko": "양버즘나무", "name_en": "Oriental plane tree", "scientific_name": "Platanus orientalis", "smell": "Young foliage contains aromatic oils and can give off a noticeable fresh, aromatic scent.", "character": ["aromatic", "fresh", "green"], "source": "young foliage", "season": "spring–summer" }, { "key": "2025.4", "name_ko": "느티나무", "name_en": "Japanese zelkova", "scientific_name": "Zelkova serrata", "smell": "No strong or distinctive scent is generally associated with the flowers or foliage; any odor is usually subtle.", "character": ["subtle", "green"], "source": "foliage/flowers", "season": "spring–summer" }, { "key": "2025.5", "name_ko": "왕벚나무", "name_en": "Yoshino cherry", "scientific_name": "Prunus × yedoensis", "smell": "Flowers are lightly to moderately fragrant, with a delicate sweet floral scent; fragrance varies among trees and cultivars.", "character": ["floral", "sweet", "delicate"], "source": "flowers", "season": "spring" }, { "key": "2025.6", "name_ko": "메타세콰이어", "name_en": "Dawn redwood", "scientific_name": "Metasequoia glyptostroboides", "smell": "Foliage has a mild resinous or green conifer-like odor when crushed, but the tree is not generally known for a strong ambient fragrance.", "character": ["green", "resinous", "mild"], "source": "crushed foliage", "season": "growing season" }, { "key": "2025.7", "name_ko": "회화나무", "name_en": "Japanese pagoda tree", "scientific_name": "Styphnolobium japonicum", "smell": "Creamy-white flowers are distinctly fragrant, producing a noticeable sweet floral scent.", "character": ["sweet", "floral", "fragrant"], "source": "flowers", "season": "summer" }, { "key": "2025.8", "name_ko": "칠엽수", "name_en": "Japanese horse chestnut", "scientific_name": "Aesculus turbinata", "smell": "Flowers can have a noticeable sweet floral fragrance, although intensity varies.", "character": ["floral", "sweet", "mild–moderate"], "source": "flowers", "season": "spring" }, { "key": "2025.9", "name_ko": "무궁화", "name_en": "Rose of Sharon", "scientific_name": "Hibiscus syriacus", "smell": "Most flowers have little to no strong fragrance; some cultivars can have a faint, delicate floral scent.", "character": ["very mild", "floral", "subtle"], "source": "flowers", "season": "summer–autumn" }, { "key": "2025.10", "name_ko": "소나무", "name_en": "Korean red pine", "scientific_name": "Pinus densiflora", "smell": "Needles have a clear pine-like, fresh, resinous and slightly herbaceous aroma.", "character": ["pine", "fresh", "resinous", "herbaceous"], "source": "needles/resin", "season": "year-round; stronger when disturbed" }, { "key": "2025.11", "name_ko": "이팝나무", "name_en": "Chinese fringe tree", "scientific_name": "Chionanthus retusus", "smell": "Flowers are fragrant; studies identify phenylethyl alcohol and other volatile compounds as important components of the floral scent.", "character": ["floral", "sweet", "fragrant"], "source": "flowers", "season": "spring" }, { "key": "2025.12", "name_ko": "기타", "name_en": "Other species", "scientific_name": null, "smell": "Varies by species. The source groups multiple species under 'other', so there is no single representative smell.", "character": ["variable"], "source": "varies", "season": "varies" }], "notes": { "interpretation": "Descriptions are general species-level scent characteristics and can vary by cultivar, sex, season, weather, and whether plant material is disturbed.", "data_limitation": "The source statistics provide district-level species counts, not individual-tree scent observations." }, "sources": [{ "species": "Ginkgo biloba", "reference": "University of Florida IFAS; RHS" }, { "species": "Platanus orientalis", "reference": "Trees and Shrubs Online" }, { "species": "Styphnolobium japonicum", "reference": "University of Minnesota Campus Trees; Journal of Integrative Agriculture" }, { "species": "Pinus densiflora", "reference": "Yu et al., 2004, Flavour and Fragrance Journal" }, { "species": "Chionanthus retusus", "reference": "Song & Hong, 2020, Journal of Asia-Pacific Biodiversity" }] };
+
+    // 1. Seoul District Geographic Center Coordinates
+    const districtCoords = {
+      "종로구": [37.5735, 126.9790],
+      "중구": [37.5636, 126.9977],
+      "용산구": [37.5326, 126.9906],
+      "성동구": [37.5634, 127.0365],
+      "광진구": [37.5385, 127.0823],
+      "동대문구": [37.5744, 127.0396],
+      "중랑구": [37.6063, 127.0928],
+      "성북구": [37.5894, 127.0167],
+      "강북구": [37.6396, 127.0257],
+      "도봉구": [37.6688, 127.0471],
+      "노원구": [37.6542, 127.0568],
+      "은평구": [37.6027, 126.9291],
+      "서대문구": [37.5791, 126.9368],
+      "마포구": [37.5663, 126.9014],
+      "양천구": [37.5170, 126.8664],
+      "강서구": [37.5509, 126.8495],
+      "구로구": [37.4954, 126.8874],
+      "금천구": [37.4569, 126.8955],
+      "영등포구": [37.5264, 126.8963],
+      "동작구": [37.5124, 126.9393],
+      "관악구": [37.4784, 126.9516],
+      "서초구": [37.4837, 127.0324],
+      "강남구": [37.5172, 127.0473],
+      "송파구": [37.5145, 127.1059],
+      "강동구": [37.5301, 127.1238]
+    };
+
+    // Color Map for Botanical Species Scents
+    const speciesColorMap = {
+      "2025.2": { color: "#f59e0b", secondary: "#fde68a", name: "Ginkgo (은행나무)", tag: "Pungent / Rancid (가을 열매취)", season: "autumn" },
+      "2025.5": { color: "#f472b6", secondary: "#fbcfe8", name: "Cherry (왕벚나무)", tag: "Sweet Floral (봄 벚꽃향)", season: "spring" },
+      "2025.11": { color: "#a855f7", secondary: "#e9d5ff", name: "Fringe / Chitalpa (이팝나무)", tag: "Honeyed Floral (봄 이팝꽃향)", season: "spring" },
+      "2025.10": { color: "#06b6d4", secondary: "#cffafe", name: "Pine (소나무)", tag: "Resinous Pine (사계절 피톤치드)", season: "year-round" },
+      "2025.3": { color: "#84cc16", secondary: "#d9f99d", name: "Platanus (양버즘나무)", tag: "Fresh Aromatic (여름 잎새향)", season: "summer" },
+      "2025.4": { color: "#10b981", secondary: "#a7f3d0", name: "Zelkova (느티나무)", tag: "Subtle Green (은은한 녹음)", season: "summer" },
+      "2025.7": { color: "#eab308", secondary: "#fef08a", name: "Pagoda (회화나무)", tag: "Sweet Blossom (여름 꿀꽃향)", season: "summer" },
+      "2025.6": { color: "#14b8a6", secondary: "#ccfbf1", name: "Metasequoia (메타세콰이어)", tag: "Mild Conifer (침엽수 피톤치드)", season: "summer" },
+      "2025.8": { color: "#fb923c", secondary: "#ffedd5", name: "Horse Chestnut (칠엽수)", tag: "Mild Floral (봄 꽃향)", season: "spring" },
+      "2025.9": { color: "#ec4899", secondary: "#fce7f3", name: "Hibiscus (무궁화)", tag: "Faint Floral (은은한 꽃향)", season: "summer" },
+      "2025.12": { color: "#94a3b8", secondary: "#e2e8f0", name: "Other (기타)", tag: "Mixed Canopy (복합 향)", season: "all" }
+    };
+
+    const SEOUL_CENTER = [37.5665, 126.9780];
+    const DEFAULT_ZOOM = window.innerWidth < 768 ? 10.5 : 11;
+
+    // 2. Initialize Leaflet Map
+    const map = L.map('map', {
+      center: SEOUL_CENTER,
+      zoom: DEFAULT_ZOOM,
+      zoomControl: false,
+      attributionControl: false
+    });
+
+    L.control.attribution({ position: 'bottomright', prefix: false }).addAttribution('Seoul Trees 2025 • Smell Cartography').addTo(map);
+
+    // OpenStreetMap Standard Tiles (Black & White via CSS filter)
+    const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
+    }).addTo(map);
+
+    // Esri Light Gray Canvas
+    const esriLight = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
+      attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
+    });
+
+    L.control.layers({
+      "OpenStreetMap (B&W)": osmStandard,
+      "Esri Light Canvas": esriLight
+    }, null, { position: 'topright' }).addTo(map);
+
+    const aurasLayer = L.layerGroup().addTo(map);
+    const districtMarkers = {};
+    let globalDistrictRows = [];
+    let speciesSmellMetadata = {};
+    let currentSeasonFilter = 'ALL';
+    let currentCharacterFilter = 'ALL';
+    let currentSpeciesFilter = 'ALL';
+    let selectedDistrict = null;
+
+    function cleanNumber(v) {
+      if (v === null || v === undefined || v === '-' || v === '') return 0;
+      const n = Number(String(v).replace(/,/g, ''));
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    // Deterministic Seeded Pseudo-Random Number Generator for Consistent Tree Coordinates
+    function mulberry32(a) {
+      return function() {
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function hashString(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash);
+    }
+
+    // Unified Render Dispatcher
+    function renderMapContent() {
+      if (selectedDistrict) {
+        renderIndividualTrees(selectedDistrict);
+      } else {
+        renderDistrictOverviewAuras();
+      }
+    }
+
+    // 1. Render 25 District Macro Scent Auras (Citywide Overview)
+    function renderDistrictOverviewAuras() {
+      aurasLayer.clearLayers();
+
+      let maxDistrictTrees = 1;
+      globalDistrictRows.forEach(r => {
+        let count = 0;
+        if (currentSpeciesFilter !== 'ALL') {
+          count = cleanNumber(r[currentSpeciesFilter]);
+        } else {
+          count = cleanNumber(r['2025.1']);
+        }
+        if (count > maxDistrictTrees) maxDistrictTrees = count;
+      });
+
+      globalDistrictRows.forEach(r => {
+        const district = r['자치구별(2)'];
+        const totalTrees = cleanNumber(r['2025.1']);
+        const coord = districtCoords[district];
+        if (!coord) return;
+
+        let activeSpeciesList = Object.keys(speciesColorMap).map(key => {
+          const count = cleanNumber(r[key]);
+          const smellInfo = speciesSmellMetadata[key] || {};
+          const meta = speciesColorMap[key];
+          return {
+            key: key,
+            count: count,
+            name: meta.name,
+            color: meta.color,
+            secondaryColor: meta.secondary,
+            tag: meta.tag,
+            season: smellInfo.season || meta.season,
+            character: smellInfo.character || [],
+            smellDesc: smellInfo.smell || ''
+          };
+        }).filter(item => item.count > 0);
+
+        // Filter by single species if selected from bottom legend
+        if (currentSpeciesFilter !== 'ALL') {
+          activeSpeciesList = activeSpeciesList.filter(item => item.key === currentSpeciesFilter);
+        }
+
+        // Filter by Season
+        if (currentSeasonFilter !== 'ALL') {
+          activeSpeciesList = activeSpeciesList.filter(item => {
+            if (currentSeasonFilter === 'year-round') return item.season.includes('year-round') || item.season.includes('all');
+            return item.season.toLowerCase().includes(currentSeasonFilter.toLowerCase());
+          });
+        }
+
+        // Filter by Scent Character
+        if (currentCharacterFilter !== 'ALL') {
+          activeSpeciesList = activeSpeciesList.filter(item => {
+            return item.character.some(c => c.toLowerCase().includes(currentCharacterFilter.toLowerCase())) ||
+              item.tag.toLowerCase().includes(currentCharacterFilter.toLowerCase());
+          });
+        }
+
+        const activeTrees = activeSpeciesList.reduce((acc, curr) => acc + curr.count, 0);
+        if (activeTrees === 0) return;
+
+        activeSpeciesList.sort((a, b) => b.count - a.count);
+        const dominant = activeSpeciesList[0];
+
+        const baseRadius = window.innerWidth < 768 ? 44 : 58;
+        const auraSize = Math.round(baseRadius + Math.sqrt(activeTrees / maxDistrictTrees) * 90);
+
+        const dominantColor = dominant.color;
+        const secondaryColor = activeSpeciesList.length > 1 ? activeSpeciesList[1].color : dominant.secondaryColor;
+
+        const iconHtml = `
+          <div class="scent-aura" style="width:${auraSize}px; height:${auraSize}px;" title="Click to view individual trees in ${district}">
+            <div class="aura-gradient-core" style="background: radial-gradient(circle at 45% 45%, ${dominantColor} 0%, ${secondaryColor} 50%, rgba(255,255,255,0.02) 75%, transparent 100%);"></div>
+            <div class="aura-ripple-1" style="border-color: ${dominantColor};"></div>
+            <div class="aura-ripple-2" style="border-color: ${secondaryColor};"></div>
+            <div class="aura-core-point" style="background:${dominantColor};"></div>
+            <span class="district-label-text">${district}</span>
+          </div>
+        `;
+
+        const customIcon = L.divIcon({
+          className: 'scent-bloom-container',
+          html: iconHtml,
+          iconSize: [auraSize, auraSize],
+          iconAnchor: [auraSize / 2, auraSize / 2],
+          popupAnchor: [0, -auraSize / 3]
+        });
+
+        const marker = L.marker(coord, { icon: customIcon });
+
+        const breakdownHtml = activeSpeciesList.map(sp => {
+          const pct = Math.round((sp.count / activeTrees) * 100);
+          return `
+            <li class="smell-species-item">
+              <span class="species-scent-badge">
+                <span class="species-scent-color" style="background:${sp.color}"></span>
+                <b>${sp.name}</b>
+              </span>
+              <span style="color:#525c56;">${sp.count.toLocaleString()}그루 (${pct}%)</span>
+            </li>
+          `;
+        }).join('');
+
+        const popupContent = `
+          <div class="scent-popup-card">
+            <div class="popup-scent-header">
+              <span class="popup-district-title">${district} (향기 프로필)</span>
+              <span class="popup-scent-tag" style="border-left: 3px solid ${dominant.color};">
+                ${activeTrees.toLocaleString()} trees
+              </span>
+            </div>
+
+            <div class="dominant-smell-banner">
+              <div class="dominant-smell-title">Dominant Scent Profile (대표 향기)</div>
+              <div class="dominant-smell-desc">
+                <b style="color:${dominant.color};">${dominant.name}</b> — ${dominant.tag}
+                <div style="font-size:11px;color:#637068;margin-top:4px;font-style:italic;">
+                  “${dominant.smellDesc || 'Natural botanical scent emission across district.'}”
+                </div>
+              </div>
+            </div>
+
+            <div class="scent-breakdown-title">Scent Canopy Spectrum (향기 수종 구성)</div>
+            <ul class="smell-species-list">
+              ${breakdownHtml}
+            </ul>
+
+            <button onclick="selectDistrict('${district}')" style="width:100%; margin-top:10px; padding:7px; background:#1f2521; color:#fff; border:none; border-radius:8px; font-weight:600; font-size:11.5px; cursor:pointer;">
+              🔍 Zoom in & View Individual Trees (개별 가로수 보기)
+            </button>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent, { maxWidth: 320 });
+        
+        // Clicking macro aura directly zooms into that district's individual trees
+        marker.on('click', () => {
+          selectDistrict(district);
+        });
+
+        marker.addTo(aurasLayer);
+        districtMarkers[district] = marker;
+      });
+    }
+
+    // 2. Render Individual Tree Diffused Radius Circles for Selected District
+    function renderIndividualTrees(districtName) {
+      aurasLayer.clearLayers();
+
+      const r = globalDistrictRows.find(item => item['자치구별(2)'] === districtName);
+      if (!r) return;
+
+      const center = districtCoords[districtName];
+      const totalTrees = cleanNumber(r['2025.1']);
+      if (!center || totalTrees === 0) return;
+
+      let activeSpeciesList = Object.keys(speciesColorMap).map(key => {
+        const count = cleanNumber(r[key]);
+        const smellInfo = speciesSmellMetadata[key] || {};
+        const meta = speciesColorMap[key];
+        return {
+          key: key,
+          count: count,
+          name: meta.name,
+          color: meta.color,
+          secondaryColor: meta.secondary,
+          tag: meta.tag,
+          season: smellInfo.season || meta.season,
+          character: smellInfo.character || [],
+          smellDesc: smellInfo.smell || '',
+          scientificName: smellInfo.scientific_name || ''
+        };
+      }).filter(item => item.count > 0);
+
+      // Filter by single species if selected from bottom legend
+      if (currentSpeciesFilter !== 'ALL') {
+        activeSpeciesList = activeSpeciesList.filter(item => item.key === currentSpeciesFilter);
+      }
+
+      // Filter by Season
+      if (currentSeasonFilter !== 'ALL') {
+        activeSpeciesList = activeSpeciesList.filter(item => {
+          if (currentSeasonFilter === 'year-round') return item.season.includes('year-round') || item.season.includes('all');
+          return item.season.toLowerCase().includes(currentSeasonFilter.toLowerCase());
+        });
+      }
+
+      // Filter by Scent Character
+      if (currentCharacterFilter !== 'ALL') {
+        activeSpeciesList = activeSpeciesList.filter(item => {
+          return item.character.some(c => c.toLowerCase().includes(currentCharacterFilter.toLowerCase())) ||
+            item.tag.toLowerCase().includes(currentCharacterFilter.toLowerCase());
+        });
+      }
+
+      const activeTotal = activeSpeciesList.reduce((acc, curr) => acc + curr.count, 0);
+      if (activeTotal === 0) return;
+
+      const rng = mulberry32(hashString(districtName + '_trees_seed_2025'));
+
+      // Generate 120 representative diffused tree circles proportional to district distribution
+      const targetSamplePoints = 120;
+      let speciesAllocations = [];
+      activeSpeciesList.forEach(sp => {
+        const share = sp.count / activeTotal;
+        const count = Math.max(1, Math.round(share * targetSamplePoints));
+        for (let i = 0; i < count; i++) {
+          speciesAllocations.push(sp);
+        }
+      });
+
+      // Deterministic shuffle
+      for (let i = speciesAllocations.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [speciesAllocations[i], speciesAllocations[j]] = [speciesAllocations[j], speciesAllocations[i]];
+      }
+
+      // Radial corridors and street angles
+      const branchAngles = [0, 0.42, 0.85, 1.28, 1.71, 2.14, 2.57, 3.0, 3.43, 3.86, 4.29, 4.72, 5.15, 5.58, 6.01];
+
+      speciesAllocations.forEach((sp, idx) => {
+        const branch = branchAngles[idx % branchAngles.length];
+        const distance = 0.0028 + Math.pow(rng(), 0.75) * 0.016; // ~300m - 1.8km radius
+        const angleJitter = (rng() - 0.5) * 0.4;
+        const finalAngle = branch + angleJitter;
+
+        const latOffset = Math.sin(finalAngle) * distance * 0.85;
+        const lngOffset = Math.cos(finalAngle) * distance * 1.15;
+
+        const treeLat = center[0] + latOffset;
+        const treeLng = center[1] + lngOffset;
+
+        // Diffused radius circle size (26px to 42px)
+        const circleSize = Math.round(26 + rng() * 16);
+
+        const iconHtml = `
+          <div class="tree-diffused-circle" style="width:${circleSize}px; height:${circleSize}px;">
+            <div class="tree-diffused-aura" style="background: radial-gradient(circle at 45% 45%, ${sp.color} 0%, ${sp.secondaryColor} 60%, transparent 100%);"></div>
+            <div class="tree-diffused-ring" style="border-color:${sp.color}; animation-delay: ${(idx * 0.12) % 3}s;"></div>
+            <div class="tree-diffused-center" style="background:${sp.color};"></div>
+          </div>
+        `;
+
+        const treeIcon = L.divIcon({
+          className: 'individual-tree-container',
+          html: iconHtml,
+          iconSize: [circleSize, circleSize],
+          iconAnchor: [circleSize / 2, circleSize / 2],
+          popupAnchor: [0, -circleSize / 2]
+        });
+
+        const marker = L.marker([treeLat, treeLng], { icon: treeIcon });
+
+        const tooltipHtml = `
+          <div style="font-family: inherit; font-size: 11.5px; line-height: 1.35; padding: 2px 4px;">
+            <b style="color:${sp.color};">${sp.name}</b><br>
+            <span style="font-size:10.5px; color:#556059;">${sp.tag}</span>
+          </div>
+        `;
+        marker.bindTooltip(tooltipHtml, { direction: 'top', offset: [0, -10], opacity: 0.96 });
+
+        const treePopup = `
+          <div class="scent-popup-card" style="min-width: 250px;">
+            <div class="popup-scent-header">
+              <div>
+                <div class="popup-district-title" style="font-size: 16px; color:${sp.color};">${sp.name}</div>
+                <div style="font-size: 11px; font-style: italic; color: #5a6660;">${sp.scientificName || 'Botanical Street Tree'}</div>
+              </div>
+              <span class="popup-scent-tag" style="border-left: 3px solid ${sp.color};">
+                ${districtName}
+              </span>
+            </div>
+
+            <div class="dominant-smell-banner" style="margin-bottom: 8px;">
+              <div class="dominant-smell-title">Scent Aura Profile (개별 수목 향기)</div>
+              <div class="dominant-smell-desc">
+                <b>${sp.tag}</b>
+                <div style="font-size:11px;color:#55625a;margin-top:4px;line-height:1.45;">
+                  “${sp.smellDesc}”
+                </div>
+              </div>
+            </div>
+
+            <div style="font-size: 10.5px; color: #6e7a73; display: flex; justify-content: space-between; border-top: 1px solid rgba(0,0,0,0.06); padding-top: 6px;">
+              <span>Active Season: <b>${sp.season}</b></span>
+              <span>District Total: <b>${sp.count.toLocaleString()}</b></span>
+            </div>
+          </div>
+        `;
+
+        marker.bindPopup(treePopup, { maxWidth: 300 });
+        marker.addTo(aurasLayer);
+      });
+    }
+
+    // Selection & Navigation Functions
+    function selectDistrict(districtName) {
+      if (!districtName || !districtCoords[districtName]) {
+        resetToOverview();
+        return;
+      }
+      selectedDistrict = districtName;
+      const coord = districtCoords[districtName];
+      const r = globalDistrictRows.find(item => item['자치구별(2)'] === districtName);
+      const totalTrees = r ? cleanNumber(r['2025.1']) : 0;
+
+      // Update banner
+      const banner = document.getElementById('districtViewBanner');
+      const nameEl = document.getElementById('districtViewName');
+      const countEl = document.getElementById('districtViewCount');
+      if (banner && nameEl && countEl) {
+        nameEl.textContent = `${districtName} · Individual Trees (개별 가로수)`;
+        countEl.textContent = `${totalTrees.toLocaleString()} trees in district census`;
+        banner.style.display = 'flex';
+      }
+
+      // Update dropdown
+      const sel = document.getElementById('districtFilter');
+      if (sel) sel.value = districtName;
+
+      // Fly to district and render individual trees
+      map.flyTo(coord, 14.5, { duration: 1.2 });
+      renderMapContent();
+    }
+
+    function resetToOverview() {
+      selectedDistrict = null;
+      const banner = document.getElementById('districtViewBanner');
+      if (banner) banner.style.display = 'none';
+
+      const sel = document.getElementById('districtFilter');
+      if (sel) sel.value = '';
+
+      map.flyTo(SEOUL_CENTER, DEFAULT_ZOOM, { duration: 1.0 });
+      renderMapContent();
+    }
+
+    // Wire back button
+    document.getElementById('btnBackToOverview').addEventListener('click', () => {
+      resetToOverview();
+    });
+
+    function populateBottomLegend() {
+      const legendContainer = document.getElementById('legendScentList');
+
+      // Starting "All Scents" item
+      let html = `
+        <div class="legend-scent-item ${currentSpeciesFilter === 'ALL' ? 'active' : ''}" data-key="ALL" title="Show all trees and scents">
+          <span class="scent-dot" style="background: radial-gradient(circle at 35% 35%, #f59e0b, #f472b6 55%, #06b6d4);"></span>
+          <span>All Scents (전체 향기)</span>
+        </div>
+      `;
+
+      html += Object.keys(speciesColorMap).map(key => {
+        const item = speciesColorMap[key];
+        const isActive = currentSpeciesFilter === key ? 'active' : '';
+        return `
+          <div class="legend-scent-item ${isActive}" data-key="${key}" title="${item.tag}">
+            <span class="scent-dot" style="background:${item.color};"></span>
+            <span>${item.name.split(' ')[0]} (${item.name.match(/\((.*?)\)/)?.[1] || ''})</span>
+          </div>
+        `;
+      }).join('');
+
+      legendContainer.innerHTML = html;
+
+      // Add click handler to filter by clicked tree/scent category
+      document.querySelectorAll('#legendScentList .legend-scent-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const key = el.getAttribute('data-key');
+
+          if (currentSpeciesFilter === key && key !== 'ALL') {
+            currentSpeciesFilter = 'ALL';
+          } else {
+            currentSpeciesFilter = key;
+          }
+
+          // Update active classes
+          document.querySelectorAll('#legendScentList .legend-scent-item').forEach(i => {
+            if (i.getAttribute('data-key') === currentSpeciesFilter) {
+              i.classList.add('active');
+            } else {
+              i.classList.remove('active');
+            }
+          });
+
+          // Re-render map
+          renderMapContent();
+        });
+      });
+    }
+
+    function populateDistrictDropdown(rows) {
+      const select = document.getElementById('districtFilter');
+      select.innerHTML = '<option value="">-- Jump to District (25 자치구 향기 탐색) --</option>';
+
+      rows.forEach(r => {
+        const district = r['자치구별(2)'];
+        const trees = cleanNumber(r['2025.1']);
+        const opt = document.createElement('option');
+        opt.value = district;
+        opt.textContent = `${district} (${trees.toLocaleString()} trees)`;
+        select.appendChild(opt);
+      });
+
+      select.addEventListener('change', (e) => {
+        const district = e.target.value;
+        if (district) {
+          selectDistrict(district);
+        } else {
+          resetToOverview();
+        }
+      });
+    }
+
+    document.querySelectorAll('.season-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.season-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSeasonFilter = btn.getAttribute('data-season');
+        renderMapContent();
+      });
+    });
+
+    document.getElementById('scentCharacterFilter').addEventListener('change', (e) => {
+      currentCharacterFilter = e.target.value;
+      renderMapContent();
+    });
+
+    // Initialize with embedded standalone data
+    function initApp() {
+      const rows = SEOUL_DATA.source_data ? SEOUL_DATA.source_data['데이터'] : (SEOUL_DATA['데이터'] || []);
+
+      if (SEOUL_DATA.species_smell) {
+        SEOUL_DATA.species_smell.forEach(sp => {
+          speciesSmellMetadata[sp.key] = sp;
+        });
+      }
+
+      globalDistrictRows = rows.filter(r => districtCoords[r['자치구별(2)']]);
+
+      populateDistrictDropdown(globalDistrictRows);
+      populateBottomLegend();
+      renderMapContent();
+    }
+
+    initApp();
+
+    window.addEventListener('resize', () => {
+      map.invalidateSize();
+    });
+  </script>
+</body>
+
+</html>

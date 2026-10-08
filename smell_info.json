@@ -1,0 +1,182 @@
+{
+  "species_smell": [
+    {
+      "key": "2025.2",
+      "name_ko": "은행나무",
+      "name_en": "Ginkgo",
+      "scientific_name": "Ginkgo biloba",
+      "smell": "Female trees produce seeds with a strong, unpleasant rancid odor, especially when fallen and crushed.",
+      "character": [
+        "pungent",
+        "rancid",
+        "unpleasant"
+      ],
+      "source": "fruit/seed covering",
+      "season": "autumn"
+    },
+    {
+      "key": "2025.3",
+      "name_ko": "양버즘나무",
+      "name_en": "Oriental plane tree",
+      "scientific_name": "Platanus orientalis",
+      "smell": "Young foliage contains aromatic oils and can give off a noticeable fresh, aromatic scent.",
+      "character": [
+        "aromatic",
+        "fresh",
+        "green"
+      ],
+      "source": "young foliage",
+      "season": "spring–summer"
+    },
+    {
+      "key": "2025.4",
+      "name_ko": "느티나무",
+      "name_en": "Japanese zelkova",
+      "scientific_name": "Zelkova serrata",
+      "smell": "No strong or distinctive scent is generally associated with the flowers or foliage; any odor is usually subtle.",
+      "character": [
+        "subtle",
+        "green"
+      ],
+      "source": "foliage/flowers",
+      "season": "spring–summer"
+    },
+    {
+      "key": "2025.5",
+      "name_ko": "왕벚나무",
+      "name_en": "Yoshino cherry",
+      "scientific_name": "Prunus × yedoensis",
+      "smell": "Flowers are lightly to moderately fragrant, with a delicate sweet floral scent; fragrance varies among trees and cultivars.",
+      "character": [
+        "floral",
+        "sweet",
+        "delicate"
+      ],
+      "source": "flowers",
+      "season": "spring"
+    },
+    {
+      "key": "2025.6",
+      "name_ko": "메타세콰이어",
+      "name_en": "Dawn redwood",
+      "scientific_name": "Metasequoia glyptostroboides",
+      "smell": "Foliage has a mild resinous or green conifer-like odor when crushed, but the tree is not generally known for a strong ambient fragrance.",
+      "character": [
+        "green",
+        "resinous",
+        "mild"
+      ],
+      "source": "crushed foliage",
+      "season": "growing season"
+    },
+    {
+      "key": "2025.7",
+      "name_ko": "회화나무",
+      "name_en": "Japanese pagoda tree",
+      "scientific_name": "Styphnolobium japonicum",
+      "smell": "Creamy-white flowers are distinctly fragrant, producing a noticeable sweet floral scent.",
+      "character": [
+        "sweet",
+        "floral",
+        "fragrant"
+      ],
+      "source": "flowers",
+      "season": "summer"
+    },
+    {
+      "key": "2025.8",
+      "name_ko": "칠엽수",
+      "name_en": "Japanese horse chestnut",
+      "scientific_name": "Aesculus turbinata",
+      "smell": "Flowers can have a noticeable sweet floral fragrance, although intensity varies.",
+      "character": [
+        "floral",
+        "sweet",
+        "mild–moderate"
+      ],
+      "source": "flowers",
+      "season": "spring"
+    },
+    {
+      "key": "2025.9",
+      "name_ko": "무궁화",
+      "name_en": "Rose of Sharon",
+      "scientific_name": "Hibiscus syriacus",
+      "smell": "Most flowers have little to no strong fragrance; some cultivars can have a faint, delicate floral scent.",
+      "character": [
+        "very mild",
+        "floral",
+        "subtle"
+      ],
+      "source": "flowers",
+      "season": "summer–autumn"
+    },
+    {
+      "key": "2025.10",
+      "name_ko": "소나무",
+      "name_en": "Korean red pine",
+      "scientific_name": "Pinus densiflora",
+      "smell": "Needles have a clear pine-like, fresh, resinous and slightly herbaceous aroma.",
+      "character": [
+        "pine",
+        "fresh",
+        "resinous",
+        "herbaceous"
+      ],
+      "source": "needles/resin",
+      "season": "year-round; stronger when disturbed"
+    },
+    {
+      "key": "2025.11",
+      "name_ko": "이팝나무",
+      "name_en": "Chinese fringe tree",
+      "scientific_name": "Chionanthus retusus",
+      "smell": "Flowers are fragrant; studies identify phenylethyl alcohol and other volatile compounds as important components of the floral scent.",
+      "character": [
+        "floral",
+        "sweet",
+        "fragrant"
+      ],
+      "source": "flowers",
+      "season": "spring"
+    },
+    {
+      "key": "2025.12",
+      "name_ko": "기타",
+      "name_en": "Other species",
+      "scientific_name": null,
+      "smell": "Varies by species. The source groups multiple species under 'other', so there is no single representative smell.",
+      "character": [
+        "variable"
+      ],
+      "source": "varies",
+      "season": "varies"
+    }
+  ],
+  "notes": {
+    "interpretation": "Descriptions are general species-level scent characteristics and can vary by cultivar, sex, season, weather, and whether plant material is disturbed.",
+    "data_limitation": "The source statistics provide district-level species counts, not individual-tree scent observations."
+  },
+  "sources": [
+    {
+      "species": "Ginkgo biloba",
+      "reference": "University of Florida IFAS; RHS"
+    },
+    {
+      "species": "Platanus orientalis",
+      "reference": "Trees and Shrubs Online"
+    },
+    {
+      "species": "Styphnolobium japonicum",
+      "reference": "University of Minnesota Campus Trees; Journal of Integrative Agriculture"
+    },
+    {
+      "species": "Pinus densiflora",
+      "reference": "Yu et al., 2004, Flavour and Fragrance Journal"
+    },
+    {
+      "species": "Chionanthus retusus",
+      "reference": "Song & Hong, 2020, Journal of Asia-Pacific Biodiversity"
+    }
+  ]
+}
